@@ -1,0 +1,49 @@
+#SAMPLE ADO PIPELINE
+---
+paramters:
+
+- name: AgentPool
+  default: ADO-AGENT-1
+  values:
+    - ADO-AGENT-1
+    - ADO-AGENT-2
+    - ADO-AGENT-3
+
+- name: AZSubscription
+  default: DD-DEV
+  values:
+  - DD-DEV
+  - DD-TEST
+  - DD-PROD
+
+- trigger:
+    batch: true   #this will collect all commits done when pipeline was running and then execute to save multiple concurrent runs
+    branches:
+      include:
+      - main
+      - release/*
+      exclude:
+      - feature/*
+
+- stages:
+  - stage: DEV
+    displayName: Dev
+    dependson: []
+    jobs:
+      - deployment: Function App Deploy
+        pool:
+          name: ${{ parameter.AgentPool }}
+      - job:
+        pool:
+          name: ${{ parameter.AgentPool }}
+        steps:
+        - task: AZCLI Execution
+          displayName: Create Service Plan
+          inputs:
+            azsubscription: ${{ parameters.AZSubscription }}
+            inlineScript: |
+              az command 1
+              az command 2
+              az command 3
+            scriptLocation: inlinescript
+            scriptType: bash
