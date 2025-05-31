@@ -5,3 +5,4 @@
 .terraformrc
 terraform.rc
 */.terraform.lock*
+.terraform.lock.hcl

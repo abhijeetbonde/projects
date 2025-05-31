@@ -1,0 +1,69 @@
+Deploy on AKS and Use Istio for access via public internet.
+
+To deploy first app and access via public internet, follow below steps -->
+    > Deploy cluster as instructions in ReadMe.txt
+    
+    > Enable istio from portal -> kubernetes cluster -> Settings -> Service mesh - Istio -> Also, enable creation of ingressgateway and egressgateway.
+    
+    > Enable Automatic sidecar injection -> from same section in portal - It adds labels to Namespaces that should have sidecar injection.
+
+    > Sanity checks of successful istio deployment -->
+        - check for all new created namespaces -> aks-istio-egress, aks-istio-ingress, aks-istio-system
+        - check (on portal) for load balancers created -> check MC resource group -> "kubernetes" and "kubernetes-internal" load balancers.
+        - check ingressgateway and egressgateway Pods and services in respective namespaces.
+    
+    > Deploy webapp from kubernetes tutorial's documentation --> https://kubernetes.io/docs/tutorials/kubernetes-basics/deploy-app/deploy-intro/
+        example command -> kubectl create deployment kubernetes-bootcamp --image=gcr.io/google-samples/kubernetes-bootcamp:v1
+    
+    > Check deployment > kubectl get deployment; kubectl get pods;
+    
+    > Use a Service to Expose Your App -> https://kubernetes.io/docs/tutorials/kubernetes-basics/expose/expose-intro/
+        example command -> kubectl expose deployment/kubernetes-bootcamp --type="NodePort" --port 8080
+
+    > Check Service deployment -> kubectl get svc; kubectl describe svc kubernetes-bootcamp
+
+    > Deploy custom gateway and virtual service to map ingressgateway/egressgateway for traffic flow ->
+        - gateway.yaml
+            apiVersion: networking.istio.io/v1beta1
+            kind: Gateway
+            metadata:
+            name: bootcamp-gateway
+            spec:
+            selector:
+                app: aks-istio-ingressgateway-external
+            servers:
+            - port:
+                number: 80
+                name: http
+                protocol: HTTP
+                hosts:
+                - "*"
+        
+        - virtual-service.yaml
+            apiVersion: networking.istio.io/v1beta1
+            kind: VirtualService
+            metadata:
+            name: bootcamp-vs
+            spec:
+            hosts:
+            - "*"
+            gateways:
+            - bootcamp-gateway
+            http:
+            - match:
+                - uri:
+                    prefix: /kubernetes-bootcamp
+                rewrite:
+                uri: /
+                route:
+                - destination:
+                    host: kubernetes-bootcamp
+                    port:
+                    number: 8080
+
+    > Get external-IP of istio-in-external and substitute it in below command
+        example-command : http://4.255.69.41/kubernetes-bootcamp
+    NOTE : We use istio-ingressgateway-external for public(internet) traffic and istio-ingressgateway-internal for interal/private traffic (one that lies within the Vnet)
+
+    ingressgateway --> used for traffic generated outside of our private network. Our service reply to the traffic generated. For example - someone calling one of our API and and our applicaiton providing a response.
+    egressgateway --> used for traffic generated from/by our applicaiton - that wants something from public internet ot from some other private network. 
